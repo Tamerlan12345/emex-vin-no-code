@@ -22,6 +22,9 @@ let rulimParser = null;
 
 async function initBrowser() {
   console.log('🚀 Запуск общего браузера...');
+  if (browser) {
+      await browser.close().catch(() => {});
+  }
   browser = await chromium.launch({
     headless: true,
     args: [
@@ -39,7 +42,7 @@ async function initBrowser() {
 
 async function initParsers() {
   try {
-    if (!browser) await initBrowser();
+    if (!browser || !browser.isConnected()) await initBrowser();
 
     // Инициализируем Emex
     emexParser = new EmexParser();
@@ -66,7 +69,8 @@ app.get('/health', (req, res) => {
     status: 'ok',
     emex: !!emexParser,
     spartex: !!spartexParser,
-    rulim: !!rulimParser
+    rulim: !!rulimParser,
+    browser_connected: browser && browser.isConnected()
   });
 });
 
@@ -159,9 +163,6 @@ app.listen(PORT, async () => {
  */
 async function shutdown() {
     console.log('⚠️ Shutting down parsers...');
-    if (emexParser) await emexParser.close();
-    if (spartexParser) await spartexParser.close();
-    if (rulimParser) await rulimParser.close();
     if (browser) await browser.close();
     process.exit(0);
 }

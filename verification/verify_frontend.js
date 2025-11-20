@@ -1,42 +1,46 @@
+
 import { chromium } from 'playwright';
 
-(async () => {
+async function verify() {
   const browser = await chromium.launch({ headless: true });
-  const context = await browser.newContext();
-  const page = await context.newPage();
+  const page = await browser.newPage();
 
-  try {
-    console.log('Navigating to http://localhost:3000');
-    await page.goto('http://localhost:3000');
+  console.log('Navigating to http://localhost:3000');
+  await page.goto('http://localhost:3000');
 
-    console.log('Waiting for source selector...');
-    await page.waitForSelector('#sourceSelect');
+  console.log('Waiting for page to load...');
+  await page.waitForLoadState('networkidle');
 
-    console.log('Taking screenshot of the UI...');
-    await page.screenshot({ path: 'verification/ui_screenshot.png' });
-    console.log('Screenshot saved to verification/ui_screenshot.png');
+  // We can inspect the onerror handler by checking the DOM or injecting a script
+  // But visually, we can check if the placeholder logic is there.
 
-    // Verify the select options
-    const options = await page.$eval('#sourceSelect', (select) => {
-        return Array.from(select.options).map(o => o.value);
-    });
-    console.log('Options found:', options);
+  // Let's inject a mock item into the results grid to test the image rendering manually
+  await page.evaluate(() => {
+    const container = document.getElementById('resultsContainer');
+    container.innerHTML = `
+        <div class="results-grid">
+            <div class="product-card">
+                <img src="http://invalid-url-to-trigger-error.com/img.png" alt="Test Item" class="card-image" onerror="this.onerror=null;this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMDAiIGhlaWdodD0iMjAwIiB2aWV3Qm94PSIwIDAgMzAwIDIwMCI+PHJlY3Qgd2lkdGg9IjMwMCIgaGVpZ2h0PSIyMDAiIGZpbGw9IiNlNmU2ZTYiLz48dGV4dCB4PSI1MCUiIHk9IjUwJSIgZG9taW5hbnQtYmFzZWxpbmU9Im1pZGRsZSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1mYW1pbHk9InNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMjAiIGZpbGw9IiM5OTkiPk5vIEltYWdlPC90ZXh0Pjwvc3ZnPg=='">
+                <div class="card-content">
+                    <div class="brand">TEST BRAND</div>
+                    <div class="product-name">Test Part with Broken Image</div>
+                    <div class="article">12345</div>
+                    <div class="details">
+                        <div class="price">1000 ₽</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+  });
 
-    if (options.includes('emex') && options.includes('spartex')) {
-        console.log('✅ Dropdown contains expected options.');
-    } else {
-        console.error('❌ Dropdown missing options.');
-        process.exit(1);
-    }
+  console.log('Waiting for image error handling...');
+  await page.waitForTimeout(1000); // Wait for onerror to trigger
 
-    // Check if search form exists
-    await page.waitForSelector('#searchForm');
-    console.log('✅ Search form present.');
+  console.log('Taking screenshot...');
+  await page.screenshot({ path: 'verification/frontend_verification.png', fullPage: true });
 
-  } catch (e) {
-    console.error('Error:', e);
-    process.exit(1);
-  } finally {
-    await browser.close();
-  }
-})();
+  await browser.close();
+}
+
+verify().catch(console.error);

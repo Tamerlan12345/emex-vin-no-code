@@ -7,25 +7,35 @@ import { chromium } from 'playwright';
 export class RulimParser {
   constructor() {
     this.baseUrl = 'https://rulim.kz';
-    this.context = null;
+    this.browser = null;
   }
 
   async init(browser) {
-    console.log('🚀 [Rulim] Создание контекста...');
-    this.context = await browser.newContext({
-      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
-      viewport: { width: 1920, height: 1080 }
-    });
+    this.browser = browser;
   }
 
   async close() {
-    if (this.context) await this.context.close();
+    // No persistent context
   }
 
   async searchByQuery(query) {
-    if (!this.context) throw new Error('RulimParser not initialized');
-    const page = await this.context.newPage();
+    if (!this.browser) throw new Error('RulimParser not initialized with browser');
+
+    let context = null;
+    let page = null;
+
     try {
+      console.log('🚀 [Rulim] Создание временного контекста...');
+      context = await this.browser.newContext({
+        userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+        viewport: { width: 1920, height: 1080 }
+      });
+
+      // Блокируем ресурсы
+      await context.route('**/*.{png,jpg,jpeg,gif,webp,svg,woff,woff2,ttf}', route => route.abort());
+
+      page = await context.newPage();
+
       console.log(`🔍 [Rulim] Поиск: "${query}"`);
       await page.goto(this.baseUrl, { waitUntil: 'domcontentloaded', timeout: 45000 });
 
@@ -71,7 +81,8 @@ export class RulimParser {
       console.error('❌ [Rulim] Ошибка:', error.message);
       return [];
     } finally {
-      await page.close();
+      if (page) await page.close().catch(() => {});
+      if (context) await context.close().catch(() => {});
     }
   }
 
@@ -102,7 +113,7 @@ export class RulimParser {
         const priceText = await (await cells[cells.length - 2].innerText()).trim();
 
         results.push({
-          image: 'https://via.placeholder.com/60?text=Rulim',
+          image: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgdmlld0JveD0iMCAwIDYwIDYwIj48cmVjdCB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIGZpbGw9IiNlNmU2ZTYiLz48dGV4dCB4PSI1MCUiIHk9IjUwJSIgZG9taW5hbnQtYmFzZWxpbmU9Im1pZGRsZSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1mYW1pbHk9InNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMTAiIGZpbGw9IiM5OTkiPlJ1bGltPC90ZXh0Pjwvc3ZnPg==',
           brand: brand || 'N/A',
           article: article || '---',
           name: name || 'Запчасть',
