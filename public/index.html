@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Emex Parser Service</title>
+    <style>
+        :root {
+            --bg-color: #f4f6f8;
+            --card-bg: #ffffff;
+            --text-color: #333333;
+            --text-secondary: #666666;
+            --primary-color: #21808d;
+            --primary-hover: #1a6670;
+            --border-color: #e0e0e0;
+            --success-color: #28a745;
+            --error-color: #dc3545;
+            --shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        [data-theme="dark"] {
+            --bg-color: #1a1a1a;
+            --card-bg: #2d2d2d;
+            --text-color: #f0f0f0;
+            --text-secondary: #aaaaaa;
+            --primary-color: #4db6ac;
+            --primary-hover: #26a69a;
+            --border-color: #404040;
+            --shadow: 0 2px 8px rgba(0,0,0,0.3);
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            background-color: var(--card-bg);
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: var(--shadow);
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 1.8rem;
+            color: var(--primary-color);
+        }
+
+        .controls {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .theme-toggle {
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 1.5rem;
+            color: var(--text-color);
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 0.9rem;
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background-color: var(--text-secondary);
+        }
+
+        .status-dot.online { background-color: var(--success-color); }
+        .status-dot.offline { background-color: var(--error-color); }
+
+        .search-section {
+            background-color: var(--card-bg);
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: var(--shadow);
+            margin-bottom: 30px;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 10px;
+        }
+
+        .tab-btn {
+            background: none;
+            border: none;
+            padding: 10px 20px;
+            cursor: pointer;
+            font-size: 1rem;
+            color: var(--text-secondary);
+            border-radius: 5px;
+            transition: all 0.2s;
+        }
+
+        .tab-btn.active {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: var(--text-secondary);
+        }
+
+        input, select {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            box-sizing: border-box;
+            font-size: 1rem;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+        }
+
+        .search-btn {
+            width: 100%;
+            padding: 14px;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 1.1rem;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            font-weight: bold;
+        }
+
+        .search-btn:hover {
+            background-color: var(--primary-hover);
+        }
+
+        .search-btn:disabled {
+            background-color: var(--text-secondary);
+            cursor: not-allowed;
+        }
+
+        .results-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 20px;
+        }
+
+        .product-card {
+            background-color: var(--card-bg);
+            border-radius: 10px;
+            box-shadow: var(--shadow);
+            overflow: hidden;
+            transition: transform 0.2s;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .product-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .card-image {
+            width: 100%;
+            height: 200px;
+            object-fit: contain;
+            background-color: #fff;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .card-content {
+            padding: 15px;
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .brand {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .product-name {
+            font-size: 1.1rem;
+            font-weight: bold;
+            margin: 5px 0;
+            line-height: 1.4;
+        }
+
+        .article {
+            font-family: monospace;
+            background-color: var(--bg-color);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            display: inline-block;
+            margin-bottom: 10px;
+        }
+
+        .details {
+            margin-top: auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-top: 1px solid var(--border-color);
+            padding-top: 10px;
+            margin-top: 10px;
+        }
+
+        .price {
+            font-size: 1.3rem;
+            font-weight: bold;
+            color: var(--primary-color);
+        }
+
+        .delivery {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+        }
+
+        .view-btn {
+            display: block;
+            text-align: center;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            text-decoration: none;
+            padding: 10px;
+            margin: 15px 15px 15px;
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+            transition: all 0.2s;
+        }
+
+        .view-btn:hover {
+            background-color: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+        }
+
+        .spinner {
+            display: none;
+            width: 24px;
+            height: 24px;
+            border: 3px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
+            margin-right: 10px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .error-msg {
+            background-color: rgba(220, 53, 69, 0.1);
+            border: 1px solid var(--error-color);
+            color: var(--error-color);
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 50px;
+            color: var(--text-secondary);
+        }
+
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>Emex Parser Railway</h1>
+        <div class="controls">
+            <div class="status-indicator">
+                <div id="statusDot" class="status-dot"></div>
+                <span id="statusText">Connecting...</span>
+            </div>
+            <button class="theme-toggle" id="themeToggle" title="Toggle Theme">🌓</button>
+        </div>
+    </header>
+
+    <div class="search-section">
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('vin')">Поиск по VIN</button>
+            <button class="tab-btn" onclick="switchTab('params')">Поиск по параметрам</button>
+        </div>
+
+        <form id="searchForm" onsubmit="handleSearch(event)">
+            <input type="hidden" id="searchMode" name="mode" value="vin">
+
+            <div id="vinFields">
+                <div class="form-group">
+                    <label for="vinInput">VIN код (17 символов)</label>
+                    <input type="text" id="vinInput" placeholder="Например: WBADT43452G123456" maxlength="17">
+                </div>
+            </div>
+
+            <div id="paramsFields" style="display: none;">
+                <div class="form-group">
+                    <label for="brandInput">Марка</label>
+                    <input type="text" id="brandInput" placeholder="Toyota">
+                </div>
+                <div class="form-group">
+                    <label for="modelInput">Модель</label>
+                    <input type="text" id="modelInput" placeholder="Camry">
+                </div>
+                <div class="form-group">
+                    <label for="yearInput">Год выпуска</label>
+                    <input type="number" id="yearInput" placeholder="2020">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="partInput">Название детали *</label>
+                <input type="text" id="partInput" placeholder="Например: масляный фильтр" required>
+            </div>
+
+            <div class="error-msg" id="errorMsg"></div>
+
+            <button type="submit" class="search-btn" id="submitBtn">
+                <div style="display: flex; justify-content: center; align-items: center;">
+                    <div class="spinner" id="spinner"></div>
+                    <span id="btnText">Найти запчасти</span>
+                </div>
+            </button>
+        </form>
+    </div>
+
+    <div id="resultsContainer">
+        <div class="empty-state">
+            <h3>Результаты поиска появятся здесь</h3>
+            <p>Введите данные автомобиля и название детали для начала поиска</p>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Configuration
+    const API_URL = '/api/search';
+    const HEALTH_URL = '/health';
+
+    // Theme Management
+    const themeToggle = document.getElementById('themeToggle');
+    const html = document.documentElement;
+
+    // Check system preference
+    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        html.setAttribute('data-theme', 'dark');
+    }
+
+    themeToggle.addEventListener('click', () => {
+        if (html.getAttribute('data-theme') === 'dark') {
+            html.removeAttribute('data-theme');
+        } else {
+            html.setAttribute('data-theme', 'dark');
+        }
+    });
+
+    // Tab Switching
+    function switchTab(mode) {
+        document.getElementById('searchMode').value = mode;
+
+        // Update UI classes
+        const tabs = document.querySelectorAll('.tab-btn');
+        tabs.forEach(t => t.classList.remove('active'));
+        event.target.classList.add('active');
+
+        // Toggle fields
+        if (mode === 'vin') {
+            document.getElementById('vinFields').style.display = 'block';
+            document.getElementById('paramsFields').style.display = 'none';
+        } else {
+            document.getElementById('vinFields').style.display = 'none';
+            document.getElementById('paramsFields').style.display = 'block';
+        }
+    }
+
+    // Health Check
+    async function checkHealth() {
+        const dot = document.getElementById('statusDot');
+        const text = document.getElementById('statusText');
+
+        try {
+            const res = await fetch(HEALTH_URL);
+            const data = await res.json();
+
+            if (data.status === 'ok') {
+                dot.className = 'status-dot online';
+                text.textContent = 'Online';
+            } else {
+                throw new Error('Not OK');
+            }
+        } catch (e) {
+            dot.className = 'status-dot offline';
+            text.textContent = 'Offline';
+        }
+    }
+
+    // Initial check and interval
+    checkHealth();
+    setInterval(checkHealth, 30000);
+
+    // Search Handler
+    async function handleSearch(e) {
+        e.preventDefault();
+
+        const btn = document.getElementById('submitBtn');
+        const spinner = document.getElementById('spinner');
+        const btnText = document.getElementById('btnText');
+        const errorMsg = document.getElementById('errorMsg');
+        const resultsContainer = document.getElementById('resultsContainer');
+
+        // Reset UI
+        errorMsg.style.display = 'none';
+        resultsContainer.innerHTML = '<div class="empty-state"><div class="spinner" style="display:block; border-color: var(--primary-color); border-top-color: transparent; margin: 0 auto;"></div><p>Поиск товаров...</p></div>';
+
+        // Loading state
+        btn.disabled = true;
+        spinner.style.display = 'block';
+        btnText.textContent = 'Поиск...';
+
+        // Gather data
+        const mode = document.getElementById('searchMode').value;
+        const part_name = document.getElementById('partInput').value;
+
+        const data = {
+            mode,
+            part_name,
+            vin: document.getElementById('vinInput').value,
+            brand: document.getElementById('brandInput').value,
+            model: document.getElementById('modelInput').value,
+            year: document.getElementById('yearInput').value
+        };
+
+        try {
+            const response = await fetch(API_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            });
+
+            const result = await response.json();
+
+            if (!result.success) {
+                throw new Error(result.message || 'Ошибка сервера');
+            }
+
+            renderResults(result.results);
+
+        } catch (error) {
+            errorMsg.textContent = error.message;
+            errorMsg.style.display = 'block';
+            resultsContainer.innerHTML = `<div class="empty-state"><p>Ошибка: ${error.message}</p></div>`;
+        } finally {
+            btn.disabled = false;
+            spinner.style.display = 'none';
+            btnText.textContent = 'Найти запчасти';
+        }
+    }
+
+    function renderResults(items) {
+        const container = document.getElementById('resultsContainer');
+
+        if (!items || items.length === 0) {
+            container.innerHTML = '<div class="empty-state"><h3>Ничего не найдено</h3><p>Попробуйте изменить параметры поиска</p></div>';
+            return;
+        }
+
+        let html = '<div class="results-grid">';
+
+        items.forEach(item => {
+            html += `
+                <div class="product-card">
+                    <img src="${item.image}" alt="${item.name}" class="card-image" onerror="this.src='https://via.placeholder.com/300?text=No+Image'">
+                    <div class="card-content">
+                        <div class="brand">${item.brand}</div>
+                        <div class="product-name">${item.name}</div>
+                        <div class="article">${item.article}</div>
+
+                        <div class="details">
+                            <div>
+                                <div class="price">${item.price.toLocaleString()} ₽</div>
+                                <div class="delivery">⏱ ${item.delivery} дн.</div>
+                            </div>
+                        </div>
+                    </div>
+                    <a href="${item.link}" target="_blank" class="view-btn">Посмотреть на Emex</a>
+                </div>
+            `;
+        });
+
+        html += '</div>';
+        container.innerHTML = html;
+    }
+</script>
+
+</body>
+</html>
