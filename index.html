@@ -1,0 +1,908 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Emex Parser - Поиск автозапчастей</title>
+    <style>
+        :root {
+  /* Primitive Color Tokens */
+  --color-white: rgba(255, 255, 255, 1);
+  --color-black: rgba(0, 0, 0, 1);
+  --color-cream-50: rgba(252, 252, 249, 1);
+  --color-cream-100: rgba(255, 255, 253, 1);
+  --color-gray-200: rgba(245, 245, 245, 1);
+  --color-gray-300: rgba(167, 169, 169, 1);
+  --color-gray-400: rgba(119, 124, 124, 1);
+  --color-slate-500: rgba(98, 108, 113, 1);
+  --color-brown-600: rgba(94, 82, 64, 1);
+  --color-charcoal-700: rgba(31, 33, 33, 1);
+  --color-charcoal-800: rgba(38, 40, 40, 1);
+  --color-slate-900: rgba(19, 52, 59, 1);
+  --color-teal-300: rgba(50, 184, 198, 1);
+  --color-teal-400: rgba(45, 166, 178, 1);
+  --color-teal-500: rgba(33, 128, 141, 1);
+  --color-teal-600: rgba(29, 116, 128, 1);
+  --color-teal-700: rgba(26, 104, 115, 1);
+  --color-teal-800: rgba(41, 150, 161, 1);
+  --color-red-400: rgba(255, 84, 89, 1);
+  --color-red-500: rgba(192, 21, 47, 1);
+  --color-orange-400: rgba(230, 129, 97, 1);
+  --color-orange-500: rgba(168, 75, 47, 1);
+
+  /* RGB versions for opacity control */
+  --color-brown-600-rgb: 94, 82, 64;
+  --color-teal-500-rgb: 33, 128, 141;
+  --color-slate-900-rgb: 19, 52, 59;
+  --color-slate-500-rgb: 98, 108, 113;
+  --color-red-500-rgb: 192, 21, 47;
+  --color-red-400-rgb: 255, 84, 89;
+  --color-orange-500-rgb: 168, 75, 47;
+  --color-orange-400-rgb: 230, 129, 97;
+
+  /* Background color tokens (Light Mode) */
+  --color-bg-1: rgba(59, 130, 246, 0.08);
+  --color-bg-2: rgba(245, 158, 11, 0.08);
+  --color-bg-3: rgba(34, 197, 94, 0.08);
+  --color-bg-4: rgba(239, 68, 68, 0.08);
+  --color-bg-5: rgba(147, 51, 234, 0.08);
+  --color-bg-6: rgba(249, 115, 22, 0.08);
+  --color-bg-7: rgba(236, 72, 153, 0.08);
+  --color-bg-8: rgba(6, 182, 212, 0.08);
+
+  /* Semantic Color Tokens (Light Mode) */
+  --color-background: var(--color-cream-50);
+  --color-surface: var(--color-cream-100);
+  --color-text: var(--color-slate-900);
+  --color-text-secondary: var(--color-slate-500);
+  --color-primary: var(--color-teal-500);
+  --color-primary-hover: var(--color-teal-600);
+  --color-primary-active: var(--color-teal-700);
+  --color-secondary: rgba(var(--color-brown-600-rgb), 0.12);
+  --color-secondary-hover: rgba(var(--color-brown-600-rgb), 0.2);
+  --color-secondary-active: rgba(var(--color-brown-600-rgb), 0.25);
+  --color-border: rgba(var(--color-brown-600-rgb), 0.2);
+  --color-btn-primary-text: var(--color-cream-50);
+  --color-card-border: rgba(var(--color-brown-600-rgb), 0.12);
+  --color-card-border-inner: rgba(var(--color-brown-600-rgb), 0.12);
+  --color-error: var(--color-red-500);
+  --color-success: var(--color-teal-500);
+  --color-warning: var(--color-orange-500);
+  --color-info: var(--color-slate-500);
+  --color-focus-ring: rgba(var(--color-teal-500-rgb), 0.4);
+  --color-select-caret: rgba(var(--color-slate-900-rgb), 0.8);
+
+  /* Common style patterns */
+  --focus-ring: 0 0 0 3px var(--color-focus-ring);
+  --focus-outline: 2px solid var(--color-primary);
+  --status-bg-opacity: 0.15;
+  --status-border-opacity: 0.25;
+  --select-caret-light: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23134252' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  --select-caret-dark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23f5f5f5' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+
+  /* RGB versions for opacity control */
+  --color-success-rgb: 33, 128, 141;
+  --color-error-rgb: 192, 21, 47;
+  --color-warning-rgb: 168, 75, 47;
+  --color-info-rgb: 98, 108, 113;
+
+  /* Typography */
+  --font-family-base: "FKGroteskNeue", "Geist", "Inter", -apple-system,
+    BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-family-mono: "Berkeley Mono", ui-monospace, SFMono-Regular, Menlo,
+    Monaco, Consolas, monospace;
+  --font-size-xs: 11px;
+  --font-size-sm: 12px;
+  --font-size-base: 14px;
+  --font-size-md: 14px;
+  --font-size-lg: 16px;
+  --font-size-xl: 18px;
+  --font-size-2xl: 20px;
+  --font-size-3xl: 24px;
+  --font-size-4xl: 30px;
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 550;
+  --font-weight-bold: 600;
+  --line-height-tight: 1.2;
+  --line-height-normal: 1.5;
+  --letter-spacing-tight: -0.01em;
+
+  /* Spacing */
+  --space-0: 0;
+  --space-1: 1px;
+  --space-2: 2px;
+  --space-4: 4px;
+  --space-6: 6px;
+  --space-8: 8px;
+  --space-10: 10px;
+  --space-12: 12px;
+  --space-16: 16px;
+  --space-20: 20px;
+  --space-24: 24px;
+  --space-32: 32px;
+
+  /* Border Radius */
+  --radius-sm: 6px;
+  --radius-base: 8px;
+  --radius-md: 10px;
+  --radius-lg: 12px;
+  --radius-full: 9999px;
+
+  /* Shadows */
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.02);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.04),
+    0 2px 4px -1px rgba(0, 0, 0, 0.02);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.04),
+    0 4px 6px -2px rgba(0, 0, 0, 0.02);
+  --shadow-inset-sm: inset 0 1px 0 rgba(255, 255, 255, 0.15),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.03);
+
+  /* Animation */
+  --duration-fast: 150ms;
+  --duration-normal: 250ms;
+  --ease-standard: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* Layout */
+  --container-sm: 640px;
+  --container-md: 768px;
+  --container-lg: 1024px;
+  --container-xl: 1280px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-gray-400-rgb: 119, 124, 124;
+    --color-teal-300-rgb: 50, 184, 198;
+    --color-gray-300-rgb: 167, 169, 169;
+    --color-gray-200-rgb: 245, 245, 245;
+
+    --color-bg-1: rgba(29, 78, 216, 0.15);
+    --color-bg-2: rgba(180, 83, 9, 0.15);
+    --color-bg-3: rgba(21, 128, 61, 0.15);
+    --color-bg-4: rgba(185, 28, 28, 0.15);
+    --color-bg-5: rgba(107, 33, 168, 0.15);
+    --color-bg-6: rgba(194, 65, 12, 0.15);
+    --color-bg-7: rgba(190, 24, 93, 0.15);
+    --color-bg-8: rgba(8, 145, 178, 0.15);
+
+    --color-background: var(--color-charcoal-700);
+    --color-surface: var(--color-charcoal-800);
+    --color-text: var(--color-gray-200);
+    --color-text-secondary: rgba(var(--color-gray-300-rgb), 0.7);
+    --color-primary: var(--color-teal-300);
+    --color-primary-hover: var(--color-teal-400);
+    --color-primary-active: var(--color-teal-800);
+    --color-secondary: rgba(var(--color-gray-400-rgb), 0.15);
+    --color-secondary-hover: rgba(var(--color-gray-400-rgb), 0.25);
+    --color-secondary-active: rgba(var(--color-gray-400-rgb), 0.3);
+    --color-border: rgba(var(--color-gray-400-rgb), 0.3);
+    --color-error: var(--color-red-400);
+    --color-success: var(--color-teal-300);
+    --color-warning: var(--color-orange-400);
+    --color-info: var(--color-gray-300);
+    --color-focus-ring: rgba(var(--color-teal-300-rgb), 0.4);
+    --color-btn-primary-text: var(--color-slate-900);
+    --color-card-border: rgba(var(--color-gray-400-rgb), 0.2);
+    --color-card-border-inner: rgba(var(--color-gray-400-rgb), 0.15);
+    --shadow-inset-sm: inset 0 1px 0 rgba(255, 255, 255, 0.1),
+      inset 0 -1px 0 rgba(0, 0, 0, 0.15);
+    --color-border-secondary: rgba(var(--color-gray-400-rgb), 0.2);
+    --color-select-caret: rgba(var(--color-gray-200-rgb), 0.8);
+
+    --color-success-rgb: var(--color-teal-300-rgb);
+    --color-error-rgb: var(--color-red-400-rgb);
+    --color-warning-rgb: var(--color-orange-400-rgb);
+    --color-info-rgb: var(--color-gray-300-rgb);
+  }
+}
+
+@font-face {
+  font-family: 'FKGroteskNeue';
+  src: url('https://r2cdn.perplexity.ai/fonts/FKGroteskNeue.woff2')
+    format('woff2');
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: var(--font-family-base);
+    background-color: var(--color-background);
+    color: var(--color-text);
+    line-height: var(--line-height-normal);
+    padding: var(--space-20);
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+header {
+    background: var(--color-surface);
+    padding: var(--space-24);
+    border-radius: var(--radius-lg);
+    margin-bottom: var(--space-24);
+    border: 1px solid var(--color-card-border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.header-left h1 {
+    font-size: var(--font-size-3xl);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-text);
+    margin-bottom: var(--space-8);
+}
+
+.header-left p {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-base);
+}
+
+.api-status {
+    display: flex;
+    align-items: center;
+    gap: var(--space-8);
+    padding: var(--space-8) var(--space-16);
+    background: var(--color-secondary);
+    border-radius: var(--radius-base);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+}
+
+.status-indicator {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: var(--color-gray-400);
+}
+
+.status-indicator.online {
+    background-color: var(--color-success);
+    box-shadow: 0 0 8px rgba(var(--color-success-rgb), 0.5);
+}
+
+.status-indicator.offline {
+    background-color: var(--color-error);
+}
+
+.search-section {
+    background: var(--color-surface);
+    padding: var(--space-24);
+    border-radius: var(--radius-lg);
+    margin-bottom: var(--space-24);
+    border: 1px solid var(--color-card-border);
+}
+
+.mode-selector {
+    display: flex;
+    gap: var(--space-12);
+    margin-bottom: var(--space-24);
+}
+
+.mode-btn {
+    flex: 1;
+    padding: var(--space-12) var(--space-24);
+    background: var(--color-secondary);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-base);
+    cursor: pointer;
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-medium);
+    color: var(--color-text);
+    transition: all var(--duration-fast) var(--ease-standard);
+}
+
+.mode-btn:hover {
+    background: var(--color-secondary-hover);
+}
+
+.mode-btn.active {
+    background: var(--color-primary);
+    color: var(--color-btn-primary-text);
+    border-color: var(--color-primary);
+}
+
+.search-form {
+    display: none;
+}
+
+.search-form.active {
+    display: block;
+}
+
+.form-group {
+    margin-bottom: var(--space-16);
+}
+
+label {
+    display: block;
+    margin-bottom: var(--space-8);
+    font-weight: var(--font-weight-medium);
+    font-size: var(--font-size-sm);
+    color: var(--color-text);
+}
+
+input, select {
+    width: 100%;
+    padding: var(--space-12);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-base);
+    font-size: var(--font-size-base);
+    background: var(--color-background);
+    color: var(--color-text);
+    font-family: var(--font-family-base);
+}
+
+input:focus, select:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: var(--focus-ring);
+}
+
+select {
+    appearance: none;
+    background-image: var(--select-caret-light);
+    background-repeat: no-repeat;
+    background-position: right var(--space-12) center;
+    background-size: 16px;
+    padding-right: var(--space-32);
+    cursor: pointer;
+}
+
+@media (prefers-color-scheme: dark) {
+    select {
+        background-image: var(--select-caret-dark);
+    }
+}
+
+.form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-16);
+}
+
+.search-btn {
+    width: 100%;
+    padding: var(--space-12) var(--space-24);
+    background: var(--color-primary);
+    color: var(--color-btn-primary-text);
+    border: none;
+    border-radius: var(--radius-base);
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-semibold);
+    cursor: pointer;
+    transition: all var(--duration-fast) var(--ease-standard);
+}
+
+.search-btn:hover:not(:disabled) {
+    background: var(--color-primary-hover);
+}
+
+.search-btn:active:not(:disabled) {
+    background: var(--color-primary-active);
+}
+
+.search-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.results-section {
+    background: var(--color-surface);
+    padding: var(--space-24);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--color-card-border);
+}
+
+.results-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--space-20);
+    padding-bottom: var(--space-16);
+    border-bottom: 1px solid var(--color-card-border-inner);
+}
+
+.results-header h2 {
+    font-size: var(--font-size-2xl);
+    font-weight: var(--font-weight-semibold);
+}
+
+.results-count {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-base);
+}
+
+.loader {
+    text-align: center;
+    padding: var(--space-32);
+    color: var(--color-text-secondary);
+}
+
+.spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid var(--color-secondary);
+    border-top-color: var(--color-primary);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin: 0 auto var(--space-16);
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.results-grid {
+    display: grid;
+    gap: var(--space-16);
+}
+
+.result-card {
+    background: var(--color-background);
+    border: 1px solid var(--color-card-border);
+    border-radius: var(--radius-base);
+    padding: var(--space-16);
+    display: grid;
+    grid-template-columns: 80px 1fr auto;
+    gap: var(--space-16);
+    align-items: center;
+    transition: all var(--duration-fast) var(--ease-standard);
+}
+
+.result-card:hover {
+    box-shadow: var(--shadow-md);
+    border-color: var(--color-primary);
+}
+
+.result-image {
+    width: 80px;
+    height: 80px;
+    object-fit: cover;
+    border-radius: var(--radius-sm);
+    background: var(--color-secondary);
+}
+
+.result-info {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-6);
+}
+
+.result-brand {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+    font-weight: var(--font-weight-medium);
+}
+
+.result-name {
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text);
+}
+
+.result-article {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+    font-family: var(--font-family-mono);
+}
+
+.result-meta {
+    display: flex;
+    gap: var(--space-12);
+    font-size: var(--font-size-sm);
+}
+
+.result-actions {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-12);
+    align-items: flex-end;
+}
+
+.result-price {
+    font-size: var(--font-size-xl);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-primary);
+}
+
+.availability-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: var(--space-4) var(--space-12);
+    border-radius: var(--radius-full);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-medium);
+    background: rgba(var(--color-success-rgb), 0.15);
+    color: var(--color-success);
+    border: 1px solid rgba(var(--color-success-rgb), 0.25);
+}
+
+.view-btn {
+    padding: var(--space-8) var(--space-16);
+    background: var(--color-secondary);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-base);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+    color: var(--color-text);
+    cursor: pointer;
+    text-decoration: none;
+    transition: all var(--duration-fast) var(--ease-standard);
+}
+
+.view-btn:hover {
+    background: var(--color-secondary-hover);
+}
+
+.error-message {
+    text-align: center;
+    padding: var(--space-32);
+    color: var(--color-error);
+    font-size: var(--font-size-base);
+}
+
+.empty-state {
+    text-align: center;
+    padding: var(--space-32);
+    color: var(--color-text-secondary);
+}
+
+.empty-state h3 {
+    font-size: var(--font-size-xl);
+    margin-bottom: var(--space-8);
+    color: var(--color-text);
+}
+
+@media (max-width: 768px) {
+    header {
+        flex-direction: column;
+        gap: var(--space-16);
+    }
+
+    .form-row {
+        grid-template-columns: 1fr;
+    }
+
+    .result-card {
+        grid-template-columns: 1fr;
+    }
+
+    .result-actions {
+        align-items: flex-start;
+    }
+}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="header-left">
+                <h1>Emex Parser</h1>
+                <p>Поиск автозапчастей через API</p>
+            </div>
+            <div class="api-status" id="apiStatus">
+                <span class="status-indicator" id="statusIndicator"></span>
+                <span id="statusText">Проверка подключения...</span>
+            </div>
+        </header>
+
+        <div class="search-section">
+            <div class="mode-selector">
+                <button class="mode-btn active" data-mode="vin">Поиск по VIN</button>
+                <button class="mode-btn" data-mode="params">Поиск по параметрам</button>
+            </div>
+
+            <form id="vinSearchForm" class="search-form active">
+                <div class="form-group">
+                    <label for="vin">VIN номер</label>
+                    <input type="text" id="vin" placeholder="Введите VIN номер" maxlength="17" required>
+                </div>
+                <div class="form-group">
+                    <label for="vinPartName">Название детали</label>
+                    <input type="text" id="vinPartName" placeholder="Например: лобовое стекло" required>
+                </div>
+                <button type="submit" class="search-btn">Найти запчасти</button>
+            </form>
+
+            <form id="paramsSearchForm" class="search-form">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="brand">Марка автомобиля</label>
+                        <input type="text" id="brand" placeholder="Например: Toyota" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="model">Модель</label>
+                        <input type="text" id="model" placeholder="Например: Camry" required>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="year">Год выпуска</label>
+                        <input type="number" id="year" placeholder="2020" min="1980" max="2025" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="partName">Название детали</label>
+                        <input type="text" id="partName" placeholder="Например: фильтр масляный" required>
+                    </div>
+                </div>
+                <button type="submit" class="search-btn">Найти запчасти</button>
+            </form>
+        </div>
+
+        <div class="results-section">
+            <div class="results-header">
+                <h2>Результаты поиска</h2>
+                <span class="results-count" id="resultsCount">0 найдено</span>
+            </div>
+            <div id="resultsContainer">
+                <div class="empty-state">
+                    <h3>Начните поиск</h3>
+                    <p>Выберите режим поиска и заполните форму для получения результатов</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // API Configuration
+const API_BASE_URL = 'http://localhost:8000';
+const API_ENDPOINTS = {
+    health: '/health',
+    search: '/api/search',
+    searchVin: '/api/search/vin',
+    searchParams: '/api/search/params'
+};
+
+// State
+let currentMode = 'vin';
+let isApiOnline = false;
+
+// DOM Elements
+const modeBtns = document.querySelectorAll('.mode-btn');
+const vinSearchForm = document.getElementById('vinSearchForm');
+const paramsSearchForm = document.getElementById('paramsSearchForm');
+const resultsContainer = document.getElementById('resultsContainer');
+const resultsCount = document.getElementById('resultsCount');
+const statusIndicator = document.getElementById('statusIndicator');
+const statusText = document.getElementById('statusText');
+
+// Initialize app
+init();
+
+function init() {
+    setupEventListeners();
+    checkApiHealth();
+}
+
+function setupEventListeners() {
+    // Mode switching
+    modeBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const mode = btn.dataset.mode;
+            switchMode(mode);
+        });
+    });
+
+    // Form submissions
+    vinSearchForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        performSearch('vin');
+    });
+
+    paramsSearchForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        performSearch('params');
+    });
+}
+
+function switchMode(mode) {
+    currentMode = mode;
+    
+    // Update buttons
+    modeBtns.forEach(btn => {
+        if (btn.dataset.mode === mode) {
+            btn.classList.add('active');
+        } else {
+            btn.classList.remove('active');
+        }
+    });
+
+    // Update forms
+    if (mode === 'vin') {
+        vinSearchForm.classList.add('active');
+        paramsSearchForm.classList.remove('active');
+    } else {
+        vinSearchForm.classList.remove('active');
+        paramsSearchForm.classList.add('active');
+    }
+}
+
+// API Health Check
+async function checkApiHealth() {
+    try {
+        const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.health}`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+
+        if (response.ok) {
+            isApiOnline = true;
+            statusIndicator.classList.add('online');
+            statusIndicator.classList.remove('offline');
+            statusText.textContent = 'API подключен';
+        } else {
+            throw new Error('API недоступен');
+        }
+    } catch (error) {
+        isApiOnline = false;
+        statusIndicator.classList.add('offline');
+        statusIndicator.classList.remove('online');
+        statusText.textContent = 'API недоступен';
+        console.error('API health check failed:', error);
+    }
+}
+
+// Perform Search
+async function performSearch(mode) {
+    if (!isApiOnline) {
+        showError('API недоступен. Проверьте, запущен ли бэкенд на порту 8000.');
+        return;
+    }
+
+    showLoader();
+
+    try {
+        let searchData = {};
+        let endpoint = API_ENDPOINTS.search;
+
+        if (mode === 'vin') {
+            const vin = document.getElementById('vin').value.trim();
+            const partName = document.getElementById('vinPartName').value.trim();
+            
+            if (!vin || !partName) {
+                throw new Error('Заполните все поля');
+            }
+
+            searchData = {
+                mode: 'vin',
+                vin: vin.toUpperCase(),
+                part_name: partName
+            };
+        } else {
+            const brand = document.getElementById('brand').value.trim();
+            const model = document.getElementById('model').value.trim();
+            const year = document.getElementById('year').value;
+            const partName = document.getElementById('partName').value.trim();
+
+            if (!brand || !model || !year || !partName) {
+                throw new Error('Заполните все поля');
+            }
+
+            searchData = {
+                mode: 'params',
+                brand: brand,
+                model: model,
+                year: parseInt(year),
+                part_name: partName
+            };
+        }
+
+        // Make API request
+        const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(searchData)
+        });
+
+        if (!response.ok) {
+            if (response.status === 400) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || 'Ошибка валидации данных. Проверьте корректность введенных данных.');
+            } else if (response.status === 500) {
+                throw new Error('Ошибка сервера. Попробуйте позже.');
+            } else {
+                throw new Error(`Ошибка HTTP: ${response.status}`);
+            }
+        }
+
+        const data = await response.json();
+
+        if (data.success) {
+            displayResults(data.results, data.total);
+        } else {
+            showError(data.message || 'Товары не найдены. Попробуйте изменить параметры поиска.');
+        }
+
+    } catch (error) {
+        console.error('Search error:', error);
+        
+        if (error.message.includes('Failed to fetch') || error.name === 'TypeError') {
+            showError('Не удается подключиться к серверу. Проверьте, запущен ли бэкенд на порту 8000.');
+            // Re-check API health
+            checkApiHealth();
+        } else {
+            showError(error.message);
+        }
+    }
+}
+
+function showLoader() {
+    resultsContainer.innerHTML = `
+        <div class="loader">
+            <div class="spinner"></div>
+            <p>Выполняется поиск...</p>
+        </div>
+    `;
+}
+
+function displayResults(results, total) {
+    resultsCount.textContent = `${total} найдено`;
+
+    if (!results || results.length === 0) {
+        resultsContainer.innerHTML = `
+            <div class="empty-state">
+                <h3>Ничего не найдено</h3>
+                <p>По вашему запросу товары не найдены. Попробуйте изменить параметры поиска.</p>
+            </div>
+        `;
+        return;
+    }
+
+    const resultsHTML = results.map(result => `
+        <div class="result-card">
+            <img src="${result.image || 'https://via.placeholder.com/80?text=No+Image'}" 
+                 alt="${result.name}" 
+                 class="result-image"
+                 onerror="this.src='https://via.placeholder.com/80?text=No+Image'">
+            <div class="result-info">
+                <div class="result-brand">${result.brand || 'Неизвестный бренд'}</div>
+                <div class="result-name">${result.name}</div>
+                <div class="result-article">Артикул: ${result.article}</div>
+                <div class="result-meta">
+                    ${result.delivery ? `<span>🚚 ${result.delivery} дн.</span>` : ''}
+                    ${result.availability ? `<span class="availability-badge">${result.availability}</span>` : ''}
+                </div>
+            </div>
+            <div class="result-actions">
+                <div class="result-price">${formatPrice(result.price)} ₽</div>
+                ${result.link ? `<a href="${result.link}" target="_blank" class="view-btn">Посмотреть</a>` : ''}
+            </div>
+        </div>
+    `).join('');
+
+    resultsContainer.innerHTML = `<div class="results-grid">${resultsHTML}</div>`;
+}
+
+function showError(message) {
+    resultsCount.textContent = '0 найдено';
+    resultsContainer.innerHTML = `
+        <div class="error-message">
+            <h3>❌ Ошибка</h3>
+            <p>${message}</p>
+        </div>
+    `;
+}
+
+function formatPrice(price) {
+    if (!price) return '0';
+    return price.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+}
+
+// Check API health every 30 seconds
+setInterval(checkApiHealth, 30000);
+    </script>
+</body>
+</html>
