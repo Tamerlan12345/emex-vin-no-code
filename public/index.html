@@ -522,7 +522,7 @@
         items.forEach(item => {
             html += `
                 <div class="product-card">
-                    <img src="${item.image}" alt="${item.name}" class="card-image" onerror="this.src='https://via.placeholder.com/300?text=No+Image'">
+                    <img src="${item.image}" alt="${item.name}" class="card-image" onerror="this.onerror=null;this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMDAiIGhlaWdodD0iMjAwIiB2aWV3Qm94PSIwIDAgMzAwIDIwMCI+PHJlY3Qgd2lkdGg9IjMwMCIgaGVpZ2h0PSIyMDAiIGZpbGw9IiNlNmU2ZTYiLz48dGV4dCB4PSI1MCUiIHk9IjUwJSIgZG9taW5hbnQtYmFzZWxpbmU9Im1pZGRsZSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1mYW1pbHk9InNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMjAiIGZpbGw9IiM5OTkiPk5vIEltYWdlPC90ZXh0Pjwvc3ZnPg=='">
                     <div class="card-content">
                         <div class="brand">${item.brand}</div>
                         <div class="product-name">${item.name}</div>
