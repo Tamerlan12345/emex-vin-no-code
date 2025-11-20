@@ -6,7 +6,7 @@ import { chromium } from 'playwright';
 export class EmexParser {
   constructor() {
     this.baseUrl = 'https://emex.ru';
-    this.context = null;
+    this.browser = null;
   }
 
   /**
@@ -14,37 +14,42 @@ export class EmexParser {
    * @param {import('playwright').Browser} browser
    */
   async init(browser) {
-    console.log('🚀 [Emex] Создание контекста...');
-
-    this.context = await browser.newContext({
-      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
-      viewport: { width: 1920, height: 1080 },
-      locale: 'ru-RU',
-      timezoneId: 'Europe/Moscow',
-      deviceScaleFactor: 1,
-    });
-
-    // Дополнительная маскировка
-    await this.context.addInitScript(() => {
-      Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
-    });
-
-    // Блокируем ресурсы
-    await this.context.route('**/*.{png,jpg,jpeg,gif,webp,svg,woff,woff2,ttf}', route => route.abort());
+    this.browser = browser;
   }
 
   async close() {
-    if (this.context) await this.context.close();
+    // No persistent context to close
   }
 
   /**
    * Поиск по общему запросу
    */
   async searchByQuery(query) {
-    if (!this.context) throw new Error('EmexParser not initialized');
-    const page = await this.context.newPage();
+    if (!this.browser) throw new Error('EmexParser not initialized with browser');
+
+    let context = null;
+    let page = null;
 
     try {
+      console.log('🚀 [Emex] Создание временного контекста...');
+      context = await this.browser.newContext({
+        userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+        viewport: { width: 1920, height: 1080 },
+        locale: 'ru-RU',
+        timezoneId: 'Europe/Moscow',
+        deviceScaleFactor: 1,
+      });
+
+      // Дополнительная маскировка
+      await context.addInitScript(() => {
+        Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+      });
+
+      // Блокируем ресурсы
+      await context.route('**/*.{png,jpg,jpeg,gif,webp,svg,woff,woff2,ttf}', route => route.abort());
+
+      page = await context.newPage();
+
       console.log(`🔍 [Emex] Поиск: "${query}"`);
 
       await page.goto(this.baseUrl, { waitUntil: 'commit', timeout: 45000 });
@@ -100,12 +105,12 @@ export class EmexParser {
       if (error.message.includes('Timeout')) return this.generateDemoData();
       throw error;
     } finally {
-      await page.close();
+      if (page) await page.close().catch(() => {});
+      if (context) await context.close().catch(() => {});
     }
   }
 
   async parseResults(page) {
-    // ... (логика парсинга та же)
     console.log('📊 Парсинг результатов...');
 
     const cardSelectors = [
