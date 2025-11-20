@@ -37,7 +37,27 @@ export class SpartexParser {
       page = await context.newPage();
 
       console.log(`🔍 [Spartex] Поиск: "${query}"`);
-      await page.goto(this.baseUrl, { waitUntil: 'networkidle', timeout: 45000 });
+
+      // Retry logic for navigation
+      let attempts = 0;
+      const maxAttempts = 3;
+      let navigationSuccess = false;
+
+      while (attempts < maxAttempts) {
+        try {
+          console.log(`🔄 [Spartex] Attempt ${attempts + 1}/${maxAttempts} navigating to ${this.baseUrl}`);
+          await page.goto(this.baseUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
+          navigationSuccess = true;
+          break;
+        } catch (e) {
+          attempts++;
+          console.log(`⚠️ [Spartex] Navigation attempt ${attempts} failed: ${e.message}`);
+          if (attempts === maxAttempts) throw e;
+          await page.waitForTimeout(2000);
+        }
+      }
+
+      if (!navigationSuccess) throw new Error('Failed to navigate to Spartex after multiple attempts');
 
       const searchSelectors = [
         'input[type="search"]',
@@ -50,7 +70,14 @@ export class SpartexParser {
 
       let searchInput = null;
 
-      await page.waitForTimeout(2000);
+      // Wait for hydration/loading
+      try {
+        await page.waitForTimeout(2000);
+        // Try waiting for any input
+        await page.waitForSelector('input', { timeout: 15000, state: 'attached' });
+      } catch (e) {
+        console.log('⚠️ [Spartex] Input not immediately visible, waiting longer...');
+      }
 
       for (const sel of searchSelectors) {
         try {
@@ -67,21 +94,35 @@ export class SpartexParser {
       }
 
       if (!searchInput) {
-         console.log('⚠️ [Spartex] Поле поиска не найдено стандартными методами.');
+         console.log('⚠️ [Spartex] Поле поиска не найдено стандартными методами, пробуем еще раз...');
+         // Angular might be slow
+         await page.waitForTimeout(3000);
          const headerInput = await page.$('header input');
          if (headerInput) {
              searchInput = headerInput;
              console.log('✅ [Spartex] Найдено поле поиска в хедере.');
          } else {
-             throw new Error('Не найдено поле поиска на Spartex');
+             // Last ditch effort: find any input that is visible
+             const allInputs = await page.$$('input');
+             for(const inp of allInputs) {
+                 if(await inp.isVisible()) {
+                     searchInput = inp;
+                     console.log('✅ [Spartex] Найдено fallback поле поиска.');
+                     break;
+                 }
+             }
          }
+      }
+
+      if (!searchInput) {
+          throw new Error('Не найдено поле поиска на Spartex');
       }
 
       await searchInput.fill(query);
       await page.keyboard.press('Enter');
 
       try {
-        await page.waitForSelector('table, .list-view, .products-list', { timeout: 20000 });
+        await page.waitForSelector('table, .list-view, .products-list, app-product-list', { timeout: 25000 });
       } catch(e) {
         console.log('⚠️ [Spartex] Таблица результатов не появилась явно, пробуем парсить...');
       }
@@ -100,7 +141,7 @@ export class SpartexParser {
   }
 
   async parseResults(page) {
-    const rows = await page.$$('tr, .product-item');
+    const rows = await page.$$('tr, .product-item, app-product-item');
     const results = [];
     const limit = Math.min(rows.length, 30);
 
