@@ -6,30 +6,17 @@ import { chromium } from 'playwright';
 export class EmexParser {
   constructor() {
     this.baseUrl = 'https://emex.ru';
-    this.browser = null;
     this.context = null;
   }
 
   /**
-   * Инициализация браузера
+   * Инициализация
+   * @param {import('playwright').Browser} browser
    */
-  async init() {
-    console.log('🚀 Запуск браузера...');
+  async init(browser) {
+    console.log('🚀 [Emex] Создание контекста...');
 
-    this.browser = await chromium.launch({
-      headless: true,
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-blink-features=AutomationControlled', // Скрываем автоматизацию
-        '--disable-web-security',
-        '--disable-features=IsolateOrigins,site-per-process',
-        '--window-size=1920,1080'
-      ]
-    });
-
-    this.context = await this.browser.newContext({
+    this.context = await browser.newContext({
       userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
       viewport: { width: 1920, height: 1080 },
       locale: 'ru-RU',
@@ -37,47 +24,31 @@ export class EmexParser {
       deviceScaleFactor: 1,
     });
 
-    // Дополнительная маскировка от обнаружения ботов
+    // Дополнительная маскировка
     await this.context.addInitScript(() => {
-      Object.defineProperty(navigator, 'webdriver', {
-        get: () => undefined,
-      });
+      Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
     });
 
-    // Блокируем загрузку картинок и шрифтов для ускорения
+    // Блокируем ресурсы
     await this.context.route('**/*.{png,jpg,jpeg,gif,webp,svg,woff,woff2,ttf}', route => route.abort());
-
-    console.log('✅ Браузер запущен');
   }
 
-  /**
-   * Закрытие браузера
-   */
   async close() {
-    if (this.browser) {
-      await this.browser.close();
-      console.log('🔒 Браузер закрыт');
-    }
+    if (this.context) await this.context.close();
   }
 
   /**
    * Поиск по общему запросу
    */
   async searchByQuery(query) {
+    if (!this.context) throw new Error('EmexParser not initialized');
     const page = await this.context.newPage();
 
     try {
-      console.log(`🔍 Поиск: "${query}"`);
+      console.log(`🔍 [Emex] Поиск: "${query}"`);
 
-      // ОПТИМИЗАЦИЯ: Увеличили таймаут до 60 сек и изменили стратегию ожидания
-      // 'commit' означает, что мы получили ответ от сервера, но не ждем полной загрузки скриптов
-      await page.goto(this.baseUrl, {
-        waitUntil: 'commit',
-        timeout: 45000
-      });
+      await page.goto(this.baseUrl, { waitUntil: 'commit', timeout: 45000 });
 
-      // Теперь явно ждем появления любого элемента интерфейса, чтобы убедиться, что сайт жив
-      // Это надежнее, чем domcontentloaded для SPA приложений
       try {
         await page.waitForSelector('body', { timeout: 30000 });
       } catch (e) {
@@ -87,7 +58,7 @@ export class EmexParser {
       await this.randomDelay(2000, 3000);
 
       const searchSelectors = [
-        '[data-test="search-input"]', // Часто используется в Emex
+        '[data-test="search-input"]',
         'input[placeholder*="Найти"]',
         'input[name="search"]',
         'input[type="search"]',
@@ -96,32 +67,24 @@ export class EmexParser {
       ];
 
       let searchInput = null;
-      // Ищем поле поиска с увеличенным таймаутом для первого элемента
       for (const selector of searchSelectors) {
         try {
           searchInput = await page.waitForSelector(selector, { timeout: 5000 });
           if (searchInput) {
-            console.log(`✅ Найдено поле поиска: ${selector}`);
+            console.log(`✅ [Emex] Найдено поле поиска: ${selector}`);
             break;
           }
-        } catch (e) {
-          continue;
-        }
+        } catch (e) { continue; }
       }
 
       if (!searchInput) {
-        // Если поле не найдено, возможно Emex показал капчу или заблокировал IP
-        // Делаем скриншот для отладки (в Railway его не увидеть, но полезно для локального теста)
-        // await page.screenshot({ path: 'error_debug.png' });
-        throw new Error('Не удалось найти поле поиска. Возможно, IP заблокирован или сайт изменился.');
+        throw new Error('Не удалось найти поле поиска на Emex.');
       }
 
       await searchInput.fill(query);
       await this.randomDelay(500, 1000);
       await searchInput.press('Enter');
 
-      // Ждем не networkidle (который часто виснет), а появления результатов
-      // Увеличиваем таймаут ожидания результатов
       try {
          await page.waitForSelector('.search-result__item, .product-card, [data-test="product-card"]', { timeout: 30000 });
       } catch(e) {
@@ -130,28 +93,23 @@ export class EmexParser {
 
       await this.randomDelay(2000, 4000);
 
-      const results = await this.parseResults(page);
-      return results;
+      return await this.parseResults(page);
 
     } catch (error) {
-      console.error('❌ Ошибка поиска:', error.message);
-      if (error.message.includes('Timeout')) {
-        throw new Error('TIMEOUT_ERROR');
-      }
+      console.error('❌ [Emex] Ошибка поиска:', error.message);
+      if (error.message.includes('Timeout')) return this.generateDemoData();
       throw error;
     } finally {
       await page.close();
     }
   }
 
-  /**
-   * Парсинг результатов поиска
-   */
   async parseResults(page) {
+    // ... (логика парсинга та же)
     console.log('📊 Парсинг результатов...');
 
     const cardSelectors = [
-      '[data-test="product-card"]', // Приоритетный селектор
+      '[data-test="product-card"]',
       '.search-result__item',
       '.product-card',
       '.goods-item',
@@ -162,20 +120,11 @@ export class EmexParser {
     for (const selector of cardSelectors) {
       try {
         cards = await page.$$(selector);
-        if (cards.length > 0) {
-          console.log(`✅ Найдено ${cards.length} карточек по селектору: ${selector}`);
-          break;
-        }
-      } catch (e) {
-        continue;
-      }
+        if (cards.length > 0) break;
+      } catch (e) { continue; }
     }
 
-    if (cards.length === 0) {
-      console.warn('⚠️ Карточки товаров не найдены. Пробуем фоллбек данные.');
-      // Важно: если парсинг упал, лучше вернуть демо-данные, чем ошибку, чтобы фронтенд не падал
-      return this.generateDemoData();
-    }
+    if (cards.length === 0) return this.generateDemoData();
 
     const results = [];
     const limit = Math.min(cards.length, 20);
@@ -184,32 +133,22 @@ export class EmexParser {
       try {
         const card = cards[i];
         const product = await this.parseProductCard(card);
-        if (product) {
-          results.push(product);
-        }
-      } catch (error) {
-        // Игнорируем ошибки отдельных карточек
-      }
+        if (product) results.push(product);
+      } catch (error) {}
     }
 
-    console.log(`✅ Успешно спарсено: ${results.length} товаров`);
     return results.length > 0 ? results : this.generateDemoData();
   }
 
-  /**
-   * Парсинг одной карточки товара
-   */
   async parseProductCard(card) {
     try {
-      // Изображение
       let image = null;
-      // Мы отключили загрузку картинок, поэтому src может быть пустым, но попробуем найти атрибут
       const imgSelectors = ['img', '.product-image img'];
       for (const selector of imgSelectors) {
         const img = await card.$(selector);
         if (img) {
             image = await img.getAttribute('src');
-            if (!image) image = await img.getAttribute('data-src'); // Иногда бывает lazy load
+            if (!image) image = await img.getAttribute('data-src');
             if (image && !image.startsWith('http')) {
               image = this.baseUrl + image;
             }
@@ -227,7 +166,6 @@ export class EmexParser {
       const deliveryText = await this.extractText(card, ['.delivery-time', '[data-test="delivery"]']) || '0';
       const delivery = this.parseDeliveryDays(deliveryText);
 
-      // Ссылка
       let link = this.baseUrl;
       const linkElem = await card.$('a');
       if (linkElem) {
@@ -246,9 +184,7 @@ export class EmexParser {
         availability: price > 0 ? 'В наличии' : 'Нет в наличии'
       };
 
-    } catch (error) {
-      return null;
-    }
+    } catch (error) { return null; }
   }
 
   async extractText(element, selectors) {
@@ -280,7 +216,6 @@ export class EmexParser {
   }
 
   generateDemoData() {
-    // Возвращаем демо данные если парсинг не прошел (чтобы не крашить приложение)
     return [
       {
         image: 'https://via.placeholder.com/60?text=Demo',

@@ -1,7 +1,9 @@
 import express from 'express';
 import cors from 'cors';
+import { chromium } from 'playwright';
 import { EmexParser } from './parser.js';
-import { SpartexParser } from './spartex-parser.js'; // <--- Импорт нового парсера
+import { SpartexParser } from './spartex-parser.js';
+import { RulimParser } from './rulim-parser.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -10,33 +12,67 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static('public'));
 
-// Храним инстансы парсеров
+// Shared browser instance
+let browser = null;
+
+// Parser instances
 let emexParser = null;
 let spartexParser = null;
+let rulimParser = null;
+
+async function initBrowser() {
+  console.log('🚀 Запуск общего браузера...');
+  browser = await chromium.launch({
+    headless: true,
+    args: [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
+      '--disable-blink-features=AutomationControlled',
+      '--disable-web-security',
+      '--disable-features=IsolateOrigins,site-per-process',
+      '--window-size=1920,1080'
+    ]
+  });
+  console.log('✅ Браузер запущен');
+}
 
 async function initParsers() {
   try {
+    if (!browser) await initBrowser();
+
     // Инициализируем Emex
     emexParser = new EmexParser();
-    await emexParser.init();
+    await emexParser.init(browser);
     console.log('✅ Emex парсер готов');
 
     // Инициализируем Spartex
     spartexParser = new SpartexParser();
-    await spartexParser.init();
+    await spartexParser.init(browser);
     console.log('✅ Spartex парсер готов');
+
+    // Инициализируем Rulim
+    rulimParser = new RulimParser();
+    await rulimParser.init(browser);
+    console.log('✅ Rulim парсер готов');
+
   } catch (error) {
     console.error('❌ Ошибка инициализации:', error.message);
   }
 }
 
 app.get('/health', (req, res) => {
-  res.json({ status: 'ok', emex: !!emexParser, spartex: !!spartexParser });
+  res.json({
+    status: 'ok',
+    emex: !!emexParser,
+    spartex: !!spartexParser,
+    rulim: !!rulimParser
+  });
 });
 
 app.post('/api/search', async (req, res) => {
   const startTime = Date.now();
-  const { vin, part_name, mode, brand, model, year, engine, source = 'emex' } = req.body; // <--- Получаем source
+  const { vin, part_name, mode, brand, model, year, engine, source = 'emex' } = req.body;
 
   console.log(`Search [${source.toUpperCase()}]: ${part_name}`);
 
@@ -66,19 +102,35 @@ app.post('/api/search', async (req, res) => {
   try {
     let results = [];
 
+    // Ensure browser is running
+    if (!browser || !browser.isConnected()) {
+        console.log('⚠️ Браузер отключен, перезапуск...');
+        await initBrowser();
+        // Re-init parsers with new browser
+        if (emexParser) await emexParser.init(browser);
+        if (spartexParser) await spartexParser.init(browser);
+        if (rulimParser) await rulimParser.init(browser);
+    }
+
     // Выбираем парсер
     if (source === 'emex') {
-        if (!emexParser) { // Рестарт если упал
+        if (!emexParser) {
             emexParser = new EmexParser();
-            await emexParser.init();
+            await emexParser.init(browser);
         }
         results = await emexParser.searchByQuery(searchQuery);
     } else if (source === 'spartex') {
         if (!spartexParser) {
             spartexParser = new SpartexParser();
-            await spartexParser.init();
+            await spartexParser.init(browser);
         }
         results = await spartexParser.searchByQuery(searchQuery);
+    } else if (source === 'rulim') {
+        if (!rulimParser) {
+            rulimParser = new RulimParser();
+            await rulimParser.init(browser);
+        }
+        results = await rulimParser.searchByQuery(searchQuery);
     }
 
     const duration = Date.now() - startTime;
@@ -105,16 +157,14 @@ app.listen(PORT, async () => {
 /**
  * Graceful shutdown
  */
-process.on('SIGTERM', async () => {
-    console.log('⚠️ SIGTERM получен, закрываем парсеры...');
+async function shutdown() {
+    console.log('⚠️ Shutting down parsers...');
     if (emexParser) await emexParser.close();
     if (spartexParser) await spartexParser.close();
+    if (rulimParser) await rulimParser.close();
+    if (browser) await browser.close();
     process.exit(0);
-});
+}
 
-process.on('SIGINT', async () => {
-    console.log('\n⚠️ SIGINT получен, закрываем парсеры...');
-    if (emexParser) await emexParser.close();
-    if (spartexParser) await spartexParser.close();
-    process.exit(0);
-});
+process.on('SIGTERM', shutdown);
+process.on('SIGINT', shutdown);
