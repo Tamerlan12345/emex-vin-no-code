@@ -73,7 +73,7 @@ export class EmexParser {
       // 'commit' означает, что мы получили ответ от сервера, но не ждем полной загрузки скриптов
       await page.goto(this.baseUrl, {
         waitUntil: 'commit',
-        timeout: 60000
+        timeout: 45000
       });
 
       // Теперь явно ждем появления любого элемента интерфейса, чтобы убедиться, что сайт жив
@@ -135,6 +135,9 @@ export class EmexParser {
 
     } catch (error) {
       console.error('❌ Ошибка поиска:', error.message);
+      if (error.message.includes('Timeout')) {
+        throw new Error('TIMEOUT_ERROR');
+      }
       throw error;
     } finally {
       await page.close();

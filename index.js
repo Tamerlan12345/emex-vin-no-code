@@ -107,6 +107,14 @@ app.post('/api/search', async (req, res) => {
   } catch (error) {
     console.error('❌ Ошибка при поиске:', error.message);
 
+    if (error.message === 'TIMEOUT_ERROR') {
+      return res.status(504).json({
+        success: false,
+        message: 'Время ожидания ответа от Emex истекло (таймаут)',
+        error: 'Timeout exceeded'
+      });
+    }
+
     res.status(500).json({
       success: false,
       message: 'Ошибка при выполнении поиска',
